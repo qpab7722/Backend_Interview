@@ -13,6 +13,20 @@
 - **파이썬** : 객체 지향형언어/인터프리터언어(한줄씩해석)/**동적 타이핑** 언어(변수에 타입 지정을 할필요없음)/느림
 
 -----------------------
+
+### Managed, Unmanaged 언어의 차이를 설명해주세요
+    
+- **Un-managed language :**  **직접 하드웨어** (메모리,cpu)에 접근하여 할당하고 해제하는 언어
+    - **c,c++**
+    - 장점 : 메모리 **최적화** 용이, VM 위에서 동작하지 않기 떄문에 **빠르다**.
+    - 단점 : 메모리 **누수가** 일어날 수 있다.
+    
+- **Managed language : VM 위에서 동작**하여 직접 하드웨어를 제어하지 않는 언어 (직접적으로 메모리에 접근하지 못하여 GC 등을 통해 메모리 관리를 받는 언어), 별도의 컴파일러나 런타임 환경에서 동작하는 언어
+    - **java , python**
+    - 장점 : 메모리 관리를 자동적으로 해주기 때문에 누수 걱정이 없다, 하드웨어, os에 **종속적이지** 않다
+    - 단점 : 비교적 **느리다**
+
+------------------------
     
 ### java 컴파일 과정
 1. 자바 **클래스 파일**을 **자바컴파일러가 자바바이트코드로 변경**
@@ -30,3 +44,60 @@
 - **네이티브 메서드 스택** : **자바 외** 실제 실행할 수 있는 **기계어로** 작성된 프로그램을 실행시키는 영역
  
  힙과 메서드 영역은 모든 스레드가 공유해서 사용
+ 
+ -----------------------
+ 
+ ### grabage collector와 장단점을 설명해 주세요
+  - JVM에서 **메모리를 관리하는 기법**으로 동적으로 Heap 영역에 생성된 객체 중 **더 이상 참조되지 않는 객체를 삭제**하는 것으로 메모리를 관리합니다.
+  - 수동으로 메모리를 관리하는데서 비롯되는 메모리 누수등의 문제를 방지 할 수 있다는 장점이 있지만, 언제 GC가 수행될지 모른다는 단점이 있습니다.
+  
+ -----------------------
+ 
+### grabage collector는 어떤 방식을 사용하나요?
+- Mark And Sweep방식을 사용합니다. Reference Counting의 순환참조시 삭제되지 않는 문제를 해결하였습니다.
+- root space 에 연결되어 있는 객체를 찾아서 마킹(Mark) 하고 마킹되지 않는 객체를 삭제(Sweep)하는 방식입니다. 
+- 추가로 영역을 정리하는 compaction을 수행하기도 합니다.(mark-sweep-compact)
+
+-----------------------
+
+### grabage collector의 동작과정을 설명해주세요.(언제 실행되는지 설명해 주세요)
+
+- GC는 Young Generation을 정리하는 Minor GC, OldGeneration을 정리하는 Major GC로 구성되어있습니다.  
+1. 객체가 생성되면 **에덴에** 위치
+2. 에덴 영역이 가득 차면 **minor CG**가 발생 , Mark And Sweep방식을 사용합니다.
+3. 참조가있는 객체는 **Suvivor**0으로 이동하고 없는객체는 삭제합니다.
+4. minor cg를 반복하다 **age**가 오래되면 **Old Generation**으로 이동합니다.
+5. **Old Generation이 가득 차면 major GC를 실행합니다. 이때의 알고리즘에는 Parallel GC, CMS GC, G1 GC가 있습니다.**
+
+-----------------------
+
+### Garbage Collector 알고리즘의 차이에 대해 설명해주세요. (Parallel, CMS, G1 GC)
+
+- Serial GC
+    - 하나의 스레드로 GC 실행, compaction 과정도 진행된다
+    - STW시간이 김,
+    - 싱글스레드 환경이나 heap이 매우 작을 때 사용
+
+- **Parallel GC** :
+    - 멀티스레드를  GC를 여러 스레드가 처리해서 Serial 방식보다 빠름 ,멀티코어 환경에서 사용(여전히 stw가 길게 일어난다.)
+    - java 8 의 CG 방식
+
+- CMS(Concurrent Mark-Sweep)
+    - Initial Mark(살아있는 객체찾음) -Concurrent Mark(참조되는 객체 확인)-Remark(추가되거나 참조가 끊긴 객체 확정)-Concurrent Sweep(삭제)
+    - Initial ,Remark 에서만 stw 발생, 나머지는 어플리케이션과 함께 수행된다.
+    - cpu 리소스를 많이 사용한다.
+    - compaction 과정을 수행하지 않는다. 조각난 메모리들이 많아 compaction을 수행하게 되면 오히려 STW가 길어져서 사용하지 않는다.
+
+
+- **G1**(**Garbage First**)  **:**
+    - 기존의 young,oldGeneration을  Region 단위로 나눈 구조
+    - 필요한 region만 수행하고,  여유공간의 확보가 빨라서  stw가 짧음
+    - 9부터 디폴트 GC
+     1. Initial Mark : old를 참조하고있는 survivor **Region 마킹**
+     2. Root Region Scanning : survivor Region을 스캔하여 old region을 참조하는 **객체 마킹**
+     3. Concurrent Marking : 전체 heap의 살아있는 객체 마킹( 비어있는region 표시됨)
+     4. Remark: 살아있는 객체 마킹 확정, 이때 비어있는 region은 삭제된다. SATB기법 사용, liveness를 계산한다
+      - snapshot-at-the-beginning : 수집 사이클을 시작할 때 접근 가능하거나 그 이후에 할당된 객체를 라이브 객체로 간주
+     5. Copying/Cleanup : liveness가 낮은 region부터 수행한다. 살아있는 객체를 옮기고 빈 region을 수거하여 신속하게 여유공간을 확보한다.
+
+----------------------
